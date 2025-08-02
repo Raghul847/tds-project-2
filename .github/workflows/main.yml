@@ -4,6 +4,12 @@ on:
   push:
     branches: [ main, master ]
   pull_request:
+    branches: [ main, master ]name: Data Science CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
     branches: [ main, master ]
 
 jobs:
@@ -59,7 +65,71 @@ jobs:
           fi
 
       - name: 📤 Upload Results (if any)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: results
+          path: |
+            *.csv
+            *.png
+            *.jpg
+            *.pdf
+          if-no-files-found: ignore
+
+jobs:
+  run-notebook:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🛠️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set Up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: 🔗 Cache Pip Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas scikit-learn jupyter nbconvert matplotlib seaborn openpyxl
+
+      - name: 📁 Check Required Files
+        run: |
+          if [ ! -f "notebook.ipynb" ]; then
+            echo "❌ Error: notebook.ipynb not found!"
+            exit 1
+          fi
+          if [ ! -f "train.csv" ]; then
+            echo "❌ Error: train.csv not found!"
+            exit 1
+          fi
+
+      - name: 🔄 Convert and Run Notebook
+        run: |
+          # Convert .ipynb to script and run it
+          jupyter nbconvert --to script notebook.ipynb
+          python notebook.py
+
+      - name: 🧪 Validate Output (Optional)
+        run: |
+          # Check if model output or predictions file is generated
+          if ls submission.csv predictions*.csv 2>/dev/null; then
+            echo "✅ Predictions file generated."
+          else
+            echo "⚠️ No submission file found. Check notebook logic."
+          fi
+
+      - name: 📤 Upload Results (if any)
+        uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
           name: results
