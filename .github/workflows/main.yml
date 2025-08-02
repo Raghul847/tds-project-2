@@ -1,0 +1,68 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🛠️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 🔗 Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest flake8  # Add testing/linting tools
+
+      - name: 🧪 Run tests (example placeholder)
+        run: |
+          # Create a minimal test script or use pytest
+          python -c "
+import pandas as pd
+import openai
+print('✅ Dependencies loaded successfully.')
+          "
+
+      - name: 🔍 Lint with flake8
+        run: |
+          flake8 . --exclude=venv,.venv --max-line-length=88 --ignore=E203,W503
+
+      - name: 📊 Display sample run (optional)
+        run: |
+          echo 'name,age\nAlice,30\nBob,25' > test_data.csv
+          python -c "
+import pandas as pd
+from main import ask_question
+df = pd.read_csv('test_data.csv')
+print('Loaded DataFrame:')
+print(df)
+          "
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # Optional: only if testing with API
+
+  # Optional: Security scan
+  security:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔒 Run CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
