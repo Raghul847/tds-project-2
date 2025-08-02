@@ -1,25 +1,25 @@
-name: Python CI
+name: Data Science CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
-  build:
+  run-notebook:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🛠️ Checkout code
+      - name: 🛠️ Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 🐍 Set up Python 3.10
+      - name: 🐍 Set Up Python 3.9
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
-      - name: 🔗 Cache pip packages
+      - name: 🔗 Cache Pip Dependencies
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -27,42 +27,45 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest flake8  # Add testing/linting tools
+          pip install --upgrade pip
+          pip install pandas scikit-learn jupyter nbconvert matplotlib seaborn openpyxl
 
-      - name: 🧪 Run tests (example placeholder)
+      - name: 📁 Check Required Files
         run: |
-          # Create a minimal test script or use pytest
-          python -c "
-import pandas as pd
-import openai
-print('✅ Dependencies loaded successfully.')
-          "
+          if [ ! -f "notebook.ipynb" ]; then
+            echo "❌ Error: notebook.ipynb not found!"
+            exit 1
+          fi
+          if [ ! -f "train.csv" ]; then
+            echo "❌ Error: train.csv not found!"
+            exit 1
+          fi
 
-      - name: 🔍 Lint with flake8
+      - name: 🔄 Convert and Run Notebook
         run: |
-          flake8 . --exclude=venv,.venv --max-line-length=88 --ignore=E203,W503
+          # Convert .ipynb to script and run it
+          jupyter nbconvert --to script notebook.ipynb
+          python notebook.py
 
-      - name: 📊 Display sample run (optional)
+      - name: 🧪 Validate Output (Optional)
         run: |
-          echo 'name,age\nAlice,30\nBob,25' > test_data.csv
-          python -c "
-import pandas as pd
-from main import ask_question
-df = pd.read_csv('test_data.csv')
-print('Loaded DataFrame:')
-print(df)
-          "
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # Optional: only if testing with API
+          # Check if model output or predictions file is generated
+          if ls submission.csv predictions*.csv 2>/dev/null; then
+            echo "✅ Predictions file generated."
+          else
+            echo "⚠️ No submission file found. Check notebook logic."
+          fi
 
-  # Optional: Security scan
-  security:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🔒 Run CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+      - name: 📤 Upload Results (if any)
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: results
+          path: |
+            *.csv
+            *.png
+            *.jpg
+            *.pdf
+          if-no-files-found: ignore
